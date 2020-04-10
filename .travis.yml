@@ -1,5 +1,6 @@
-language: objective-c
-osx_image: xcode10.2
+os: osx
+osx_image: xcode11.4
+language: swift
 xcode_project: DVR.xcodeproj
 
 matrix:
@@ -19,6 +20,5 @@ matrix:
     - env:
       - SWIFT_BUILD=true
 
-script: 
+script:
   - ./Scripts/travis-build-test.sh
-
