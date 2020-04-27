@@ -6,6 +6,10 @@ rvm: 2.7.1
 cache:
   - bundler
 
+branches:
+  only:
+    - master
+    
 env:
   global:
     - PROJECT="DVR.xcodeproj"
@@ -20,7 +24,7 @@ jobs:
       stage: unit tests
       name: iOS 12.2
       env: DESTINATION="OS=12.2,name=iPhone X" SDK="$IOS_SDK" SCHEME="DVR-iOS"
-      before_install:
+      before_script:
         - bundle exec danger
         - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-darwin-amd64 > ./cc-test-reporter
         - chmod +x ./cc-test-reporter
