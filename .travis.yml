@@ -1,24 +1,76 @@
-language: objective-c
-osx_image: xcode10.2
+os: osx
+osx_image: xcode11.4
 xcode_project: DVR.xcodeproj
+rvm: 2.7.1
 
-matrix:
+cache:
+  - bundler
+
+branches:
+  only:
+    - master
+
+env:
+  global:
+    - PROJECT="DVR.xcodeproj"
+    - SCHEME="DVR-iOS"
+    - IOS_SDK=iphonesimulator13.4
+    - TVOS_SDK=appletvsimulator13.4
+    - OSX_SDK=macosx10.15
+
+jobs:
   include:
-    - xcode_scheme: DVR-iOS
-      xcode_sdk: iphonesimulator
-      env:
-        - DESTINATION="iOS Simulator,OS=12.2,name=iPhone X"
-    - xcode_scheme: DVR-macOS
-      xcode_sdk: macosx
-      env:
-        - DESTINATION="macOS,arch=x86_64"
-    - xcode_scheme: DVR-tvOS
-      xcode_sdk: appletvsimulator
-      env:
-        - DESTINATION="tvOS Simulator,name=Apple TV 4K,OS=12.2"
-    - env:
-      - SWIFT_BUILD=true
+    - &test
+      stage: unit tests
+      name: iOS 12.2
+      env: DESTINATION="OS=12.2,name=iPhone X" SDK="$IOS_SDK" SCHEME="DVR-iOS"
+      before_script:
+        - bundle exec danger
+        - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-darwin-amd64 > ./cc-test-reporter
+        - chmod +x ./cc-test-reporter
+      script:
+        - set -o pipefail
+        - xcodebuild -version -sdk
+        - >
+           xcodebuild clean test -project "$PROJECT" \
+                                 -scheme "$SCHEME" \
+                                 -sdk "$SDK" \
+                                 -destination "$DESTINATION" \
+                                 -enableCodeCoverage YES \
+                                 -configuration Debug \
+                                 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_REQUIRED=NO | bundle exec xcpretty -c;
+      after_success:
+        - bundle exec slather coverage -s --scheme "$SCHEME" "$PROJECT"
+        - "./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT"
 
-script: 
-  - ./Scripts/travis-build-test.sh
+    - <<: *test
+      name: iOS 13.0
+      env: DESTINATION="OS=13.0,name=iPhone 11" SDK="$IOS_SDK"
 
+    - <<: *test
+      name: macOS
+      env: DESTINATION="arch=x86_64" SDK="$OSX_SDK" SCHEME="DVR-macOS"
+
+    - <<: *test
+      name: tvOS 12.2
+      env: DESTINATION="OS=12.2,name=Apple TV 4K" SDK="$TVOS_SDK" SCHEME="DVR-tvOS"
+      script:
+        - swift build
+
+    - <<: *test
+      name: tvOS 13.0
+      env: DESTINATION="OS=13.0,name=Apple TV" SDK="$TVOS_SDK" SCHEME="DVR-tvOS"
+
+    - stage: lint
+      name: pod lint
+      script: bundle exec pod lib lint
+
+    - stage: carthage
+      name: carthage
+      os: osx
+      script: carthage build --no-skip-current --configuration Release
+
+stages:
+  - unit tests
+  - lint
+  - carthage
